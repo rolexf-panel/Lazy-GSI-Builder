@@ -1,0 +1,116 @@
+name: Build Treble GSI (SlimHub Optimized)
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'LineageOS Branch'
+        required: true
+        default: 'lineage-22.1'
+      manifest_branch:
+        description: 'Treble Manifest Branch'
+        required: true
+        default: 'android-15.0'
+      device:
+        description: 'Lunch Variant'
+        required: true
+        default: 'treble_arm64_bvN-userdebug'
+
+jobs:
+  slim_build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout your code first (this is safe, slimhub won't delete this)
+      - uses: actions/checkout@v4
+
+      # 2. SlimHub Actions - Clean up disk to get 80GB+ space
+      - name: Free Up Disk Space
+        uses: rokibhasansagar/slimhub_actions@main
+        with:
+          # We leave it empty for maximum cleanup.
+          # Your code files in the workspace will not be deleted.
+          retain: ""
+
+      # 3. Install Build Packages (PERFORMED AFTER cleanup to ensure they aren't deleted)
+      - name: Install Build Packages & Repo
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc bison build-essential curl flex g++-multilib gcc-multilib git gnupg gperf \
+          libxml2 lib32z1-dev liblz4-tool libncurses5-dev libsdl1.2-dev libwxgtk3.0-gtk3-dev imagemagick \
+          git lunzip lzop schedtool squashfs-tools xsltproc zip zlib1g-dev openjdk-17-jdk python3 perl \
+          xmlstarlet virtualenv xz-utils rr jq pngcrush lib32ncurses5-dev git-lfs libxml2
+          
+          # Install Repo Command
+          mkdir -p ~/bin
+          curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
+          chmod a+x ~/bin/repo
+          echo "$HOME/bin" >> $GITHUB_PATH
+
+      # 4. Configure Git
+      - name: Configure Git
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+
+      # 5. Initialize Repo
+      - name: Initialize Repo
+        run: |
+          mkdir -p ~/rom && cd ~/rom
+          repo init -u https://github.com/LineageOS/android.git -b ${{ inputs.branch }}
+          
+          # Add Treble Manifests
+          git clone https://github.com/TrebleDroid/treble_manifest .repo/local_manifests -b ${{ inputs.manifest_branch }}
+          
+          # Remove replace.xml if building other than AOSP GSI
+          if [ -f .repo/local_manifests/replace.xml ]; then
+            rm .repo/local_manifests/replace.xml
+          fi
+
+      # 6. Sync Source
+      # Using -j4 to ensure connection stability
+      - name: Sync Source
+        run: |
+          cd ~/rom
+          repo sync -c -j4 --force-sync --no-tags --no-clone-bundle --optimized-fetch --prune
+
+      # 7. Setup Treble Environment
+      - name: Setup Treble Environment
+        run: |
+          cd ~/rom
+          
+          # Check and run phh generate script if available
+          if [ -f device/phh/treble/generate.sh ]; then
+            bash device/phh/treble/generate.sh vendor/lineage/config/common_full_phone.mk
+          else
+            echo "generate.sh not found, skipping..."
+          fi
+
+      # 8. Build GSI
+      - name: Build GSI
+        run: |
+          cd ~/rom
+          export USE_CCACHE=1
+          export CCACHE_DIR=~/rom/.ccache
+          
+          # Limit ccache so it doesn't consume all disk on public runners
+          export CCACHE_MAXSIZE=5G
+          
+          . build/envsetup.sh
+          lunch ${{ inputs.device }}
+          WITHOUT_CHECK_API=true make -j$(nproc) systemimage
+
+      # 9. Compress Output
+      - name: Compress Output
+        run: |
+          cd ~/rom
+          # Find system.img and compress
+          find out/target/product -name "system.img" -exec xz -9 -T0 -v -z {} \;
+
+      # 10. Upload Build Artifact
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gsi-treble-${{ inputs.branch }}-slim
+          path: ~/rom/out/target/product/*/system.img.xz
+          retention-days: 7
