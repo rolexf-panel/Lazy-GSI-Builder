@@ -24,6 +24,56 @@ This workflow supports the following ROMs via a simple dropdown menu:
 
 ---
 
+## Project Structure 📁
+
+```
+.
+├── .github/
+│   └── workflows/
+│       └── build.yml           # Main workflow file
+├── scripts/
+│   ├── utils.sh                # Utility functions & progress bars
+│   ├── setup-environment.sh    # Environment setup
+│   ├── set-java-version.sh     # Java version configuration
+│   ├── configure-rom.sh        # ROM manifest configuration
+│   ├── sync-source.sh          # Repository sync with progress
+│   ├── setup-treble.sh         # Treble environment setup
+│   ├── setup-ccache.sh         # ccache configuration
+│   ├── build-gsi.sh            # Main build script with progress
+│   ├── package-output.sh       # Compression & packaging
+│   └── build-summary.sh        # GitHub summary generation
+└── README.md                   # This file
+```
+
+The workflow is modular - each script handles a specific phase of the build process with visual progress indicators and detailed logging.
+
+### 📜 Script Functions
+
+| Script | Purpose | Key Features |
+|--------|---------|--------------|
+| `utils.sh` | Common functions | Progress bars, colored output, timers, retry logic |
+| `setup-environment.sh` | Install dependencies | Package installation with progress tracking |
+| `set-java-version.sh` | Configure Java | Auto-selects Java 8/11/17 based on Android version |
+| `configure-rom.sh` | Set ROM source | Validates and configures manifest URL |
+| `sync-source.sh` | Download sources | Repo sync with progress display and retry |
+| `setup-treble.sh` | Treble setup | Detects ROM type and runs generation scripts |
+| `setup-ccache.sh` | Configure cache | Sets up build cache for faster rebuilds |
+| `build-gsi.sh` | Main build | Compiles GSI with real-time ninja progress |
+| `package-output.sh` | Compress & package | Creates compressed image and build info |
+| `build-summary.sh` | Generate report | Creates GitHub Actions summary |
+
+### ✨ Features
+
+- **📊 Real-time Progress Bars**: Visual progress indicators for all major build phases
+- **🎨 Color-Coded Output**: Easy-to-read colored console output
+- **⏱️ Time Tracking**: Automatic timing for each build phase
+- **🔄 Automatic Retry**: Smart retry logic with exponential backoff
+- **💾 Build Caching**: Optional ccache support for faster rebuilds
+- **📝 Detailed Logs**: Comprehensive logging with automatic error capture
+- **📦 Auto-Packaging**: Automatic compression and build info generation
+
+---
+
 ## Quick Start ⚡
 
 1. **Fork** this repository to your account.
@@ -31,6 +81,72 @@ This workflow supports the following ROMs via a simple dropdown menu:
 3. Select **Universal Treble GSI Builder** and click **Run workflow**.
 4. Fill in the options (see the guide below) and click the green button.
 5. Wait for the build to finish (usually 1-4 hours) and grab the artifact.
+
+### 🎬 What You'll See During Build
+
+The workflow provides real-time visual feedback:
+
+```
+═══════════════════════════════════════════════════════════
+  Setting Up Build Environment
+═══════════════════════════════════════════════════════════
+
+[████████████████████████████████████████████████] 100% - Installing dependencies
+✓ All dependencies installed successfully
+✓ Environment setup completed in 3m 24s
+
+═══════════════════════════════════════════════════════════
+  Starting Compilation
+═══════════════════════════════════════════════════════════
+
+[████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 42% (1247/2956) Building...
+```
+
+Each phase shows:
+- Progress bars with percentage completion
+- Current/total tasks where applicable
+- Elapsed time for each phase
+- Color-coded success/error messages
+
+### 🔄 Build Flow
+
+The build process follows these phases:
+
+```
+1. ⚙️  Setup Environment (3-5 min)
+   └─ Install dependencies, configure tools
+   
+2. ☕ Configure Java (< 1 min)
+   └─ Auto-select correct Java version
+   
+3. 🔧 Configure ROM Source (< 1 min)
+   └─ Set manifest URL
+   
+4. 📥 Sync Repository (30-90 min)
+   ├─ Initialize repo
+   ├─ Clone Treble manifests
+   └─ Sync all sources
+   
+5. 🔨 Setup Treble (< 1 min)
+   └─ Generate device configs
+   
+6. 💾 Setup ccache (< 1 min) [Optional]
+   └─ Configure build cache
+   
+7. 🏗️  Build GSI (1-3 hours)
+   ├─ Source environment
+   ├─ Configure target
+   └─ Compile system image
+   
+8. 📦 Package Output (5-15 min)
+   ├─ Compress image
+   └─ Generate build info
+   
+9. ✅ Upload Artifacts
+   └─ Save to GitHub
+```
+
+Each phase includes automatic retry logic and detailed error reporting.
 
 ---
 
@@ -180,6 +296,31 @@ Choose the correct variant based on your device architecture:
 ---
 
 ## Downloading & Usage 📂
+
+### Setting Up Your Fork
+
+After forking this repository, the structure should look like:
+
+```
+your-repo/
+├── .github/workflows/build.yml
+├── scripts/
+│   ├── utils.sh
+│   ├── setup-environment.sh
+│   ├── set-java-version.sh
+│   ├── configure-rom.sh
+│   ├── sync-source.sh
+│   ├── setup-treble.sh
+│   ├── setup-ccache.sh
+│   ├── build-gsi.sh
+│   ├── package-output.sh
+│   └── build-summary.sh
+└── README.md
+```
+
+**Important:** Make sure all scripts in the `scripts/` directory are present. The workflow will automatically make them executable.
+
+### Downloading Built GSIs
 
 1. Once the workflow completes, scroll to the **Artifacts** section at the bottom.
 2. Download the zip file (named `gsi-[ROM]-[branch]`).
