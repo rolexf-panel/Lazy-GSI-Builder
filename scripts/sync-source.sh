@@ -24,8 +24,18 @@ print_success "Repo initialized successfully"
 print_info "Cloning TrebleDroid manifests for $TREBLE_BRANCH"
 git clone https://github.com/TrebleDroid/treble_manifest .repo/local_manifests -b $TREBLE_BRANCH
 
-# Remove replace.xml if it exists
+# Remove problematic manifest files that cause remote conflicts
+print_info "Cleaning up conflicting manifest files..."
 rm -f .repo/local_manifests/replace.xml
+rm -f .repo/local_manifests/remove.xml
+rm -f .repo/local_manifests/lineage_replace.xml
+
+# Fix remote conflicts by editing manifests
+if [ -f .repo/local_manifests/manifest.xml ]; then
+    # Remove any conflicting 'github' remote definitions
+    sed -i '/<remote.*name="github"/d' .repo/local_manifests/manifest.xml 2>/dev/null || true
+fi
+
 print_success "Treble manifests configured"
 
 # Show manifest configuration
@@ -47,7 +57,14 @@ sync_with_progress() {
     
     print_info "Sync attempt $attempt with $jobs parallel jobs"
     
-    repo sync -c -j$jobs --force-sync --no-tags --no-clone-bundle --optimized-fetch --prune 2>&1 | \
+    # Use additional flags to handle conflicts
+    repo sync -c -j$jobs \
+        --force-sync \
+        --force-remove-dirty \
+        --no-tags \
+        --no-clone-bundle \
+        --optimized-fetch \
+        --prune 2>&1 | \
     while IFS= read -r line; do
         # Try to extract project count from repo sync output
         if [[ $line =~ Fetching\ projects:\ ([0-9]+)% ]]; then
@@ -69,11 +86,29 @@ sync_with_progress() {
 
 # Try syncing with different job counts
 if ! sync_with_progress 1 $(nproc); then
-    print_warning "First sync attempt failed, retrying with fewer jobs..."
+    print_warning "First sync attempt failed, checking for remote conflicts..."
+    
+    # Try to fix remote conflicts manually
+    print_info "Attempting to resolve remote conflicts..."
+    cd .repo/manifests
+    git config --unset-all remote.github.url 2>/dev/null || true
+    git config --unset-all remote.github.fetch 2>/dev/null || true
+    cd ~/rom
+    
+    # Reinitialize repo to fix remotes
+    print_info "Reinitializing repo configuration..."
+    repo init -u $MANIFEST_URL -b $BRANCH --depth=1 || true
+    
     if ! sync_with_progress 2 4; then
-        print_warning "Second sync attempt failed, final retry with minimal jobs..."
+        print_warning "Second sync attempt failed, trying deep cleanup..."
+        
+        # More aggressive cleanup
+        find .repo/projects -name "*.git/config" -exec sed -i '/\[remote "github"\]/,+2d' {} \; 2>/dev/null || true
+        
         if ! sync_with_progress 3 2; then
             print_error "Repo sync failed after 3 attempts"
+            print_info "Showing detailed error information..."
+            repo sync -j1 --force-sync --force-remove-dirty
             exit 1
         fi
     fi
