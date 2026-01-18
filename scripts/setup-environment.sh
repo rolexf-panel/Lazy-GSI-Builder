@@ -9,11 +9,18 @@ show_system_info
 
 # Additional cleanup
 print_info "Performing additional disk cleanup..."
-sudo rm -rf /usr/share/dotnet
-sudo rm -rf /usr/local/lib/android
-sudo rm -rf /opt/ghc
-sudo rm -rf /opt/hostedtoolcache/CodeQL
-sudo docker image prune --all --force > /dev/null 2>&1
+sudo rm -rf /usr/share/dotnet 2>/dev/null || true
+sudo rm -rf /usr/local/lib/android 2>/dev/null || true
+sudo rm -rf /opt/ghc 2>/dev/null || true
+sudo rm -rf /opt/hostedtoolcache/CodeQL 2>/dev/null || true
+
+# Only prune docker if it's available
+if command -v docker &> /dev/null; then
+    print_info "Pruning Docker images..."
+    sudo docker image prune --all --force > /dev/null 2>&1 || true
+else
+    print_info "Docker not available, skipping docker cleanup"
+fi
 
 echo ""
 print_info "Available space after cleanup:"
