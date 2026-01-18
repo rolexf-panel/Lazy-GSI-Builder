@@ -1,67 +1,82 @@
-# Treble GSI Builder
 
-Automated build system using GitHub Actions to generate Project Treble GSI images. Based on LineageOS and TrebleDroid.
+
+# Universal GSI Builder 🤖
+
+Automated GitHub Actions workflow to build Treble GSIs for multiple ROMs. No code editing required—just select, run, and build.
+
+## Supported ROMs 📱
+
+This workflow supports the following ROMs via a simple dropdown menu:
+
+- LineageOS 🧬
+- crDroid 🤖
+- DerpFest 🍤
+- Evolution X 🔥
+- PixelOS 📱
+- ArrowOS 🏹
+- **Custom** (Any other AOSP ROM)
 
 ---
 
-## Overview
+## Quick Start ⚡
 
-This workflow allows you to build Treble GSIs remotely without using local resources. It utilizes `slimhub_actions` to optimize disk usage, ensuring sufficient space for the compilation process on standard GitHub runners.
+1. **Fork** this repository to your account.
+2. Go to the **Actions** tab.
+3. Select **Universal Treble GSI Builder** and click **Run workflow**.
+4. Fill in the options (see the guide below) and click the green button.
+5. Wait for the build to finish (usually 1-3 hours) and grab the artifact.
 
-## Quick Start
+---
 
-1. **Fork this repository** to your account.
-2. Open the **Actions** tab.
-3. Select **Build Treble GSI (SlimHub Optimized)**.
-4. Click **Run workflow**.
-5. Select the branch and fill in the build parameters.
-6. Click the green **Run workflow** button.
+## Configuration ⚙️
 
-## Configuration
+Refer to the table below to fill out the form correctly. The most important part is matching the **ROM Branch** with the correct **Android Version**.
 
-The following parameters are available when running the workflow:
+| Field Name | Description & Tips |
+| :--- | :--- |
+| **Choose ROM Base** | Select your ROM from the list. If your ROM isn't listed, choose **Custom** and paste the manifest URL in the next field. |
+| **ROM Branch** | The specific version of the ROM.<br> *Examples:* `15.0`, `fourteen`, `thirteen`, `peplus`. |
+| **Treble Manifest Branch** | Must match the Android version of the ROM branch.<br> *If Branch is `15.0` → Use `android-15.0`*<br> *If Branch is `fourteen` → Use `android-14.0`* |
+| **Lunch Variant** | The target architecture.<br> *Standard:* `treble_arm64_bvN-userdebug` |
 
-| Parameter | Description | Default Value |
-| :--- | :--- | :--- |
-| **LineageOS Branch** | The version of LineageOS to use as the base. | `lineage-22.1` |
-| **Manifest Branch** | The TrebleDroid manifest version (usually matches Android version). | `android-15.0` |
-| **Lunch Variant** | The specific device configuration and architecture. | `treble_arm64_bvN-userdebug` |
+---
 
-<details>
-<summary><b>Available Lunch Variants</b></summary>
+## Build Examples 📝
 
-Choose the variant that matches your device architecture and preference:
+Here are some common configurations to help you get started:
 
-- **`treble_arm64_bvN`**: 64-bit, Vanilla (No GApps), VNDK v3+.
-- **`treble_arm64_bgN`**: 64-bit, GApps included, VNDK v3+.
-- **`treble_arm64_avN`**: 64-bit, AOSP (Generic), VNDK v3+.
+### Example A: Building crDroid Android 15
+- **Choose ROM Base**: `crDroid`
+- **ROM Branch**: `15.0`
+- **Treble Manifest Branch**: `android-15.0`
 
-*Note: Replace `N` with the specific version number if required by the manifest.*
+### Example B: Building PixelOS 14
+- **Choose ROM Base**: `PixelOS`
+- **ROM Branch**: `fourteen`
+- **Treble Manifest Branch**: `android-14.0`
 
-</details>
+### Example C: Building an unsupported ROM (e.g., RisingOS)
+- **Choose ROM Base**: `Custom (Input URL manually)`
+- **Custom Manifest URL**: `https://github.com/RisingTechOSS/android`
+- **ROM Branch**: `fenix`
+- **Treble Manifest Branch**: `android-15.0` (Check what Android version 'fenix' is based on)
 
-## Downloading
+---
 
-Once the build status shows success:
+## Downloading & Usage 📂
 
-1. Scroll to the bottom of the workflow run page.
-2. Locate the **Artifacts** section.
-3. Download `gsi-treble-[branch]-slim.zip`.
-4. Extract the zip file to retrieve `system.img.xz`.
-5. Decompress the image file:
-   ```bash
-   xz -d system.img.xz
-   ```
+1. Once the workflow completes, scroll to the **Artifacts** section at the bottom.
+2. Download the zip file (named `gsi-[ROM]-[branch]`).
+3. Extract the zip to find `system.img.xz`.
+4. Decompress the image: `xz -d system.img.xz`.
+5. Flash the resulting `system.img` to your device.
 
-## Notes & Limitations
+**Note:** Ensure your device supports Project Treble and has an unlocked bootloader before flashing.
 
-- **Duration**: The build process takes approximately 1 to 3 hours. The initial run will be slower due to source synchronization.
-- **Storage**: The workflow cleans up the CI environment to free up to ~80GB. If the source size exceeds this, the build may fail.
-- **Requirements**: Ensure your device supports Project Treble and has an unlocked bootloader.
+---
 
-## Credits
+## Credits 🙏
 
-- [phhusson](https://github.com/phhusson) for Treble contributions.
-- [TrebleDroid](https://github.com/TrebleDroid) for the device manifests.
-- [LineageOS](https://github.com/LineageOS) for the ROM source.
-- [rokibhasansagar](https://github.com/rokibhasagar) for `slimhub_actions`.
+- [phhusson](https://github.com/phhusson) for the original Treble work.
+- [TrebleDroid](https://github.com/TrebleDroid) for maintaining the device manifests.
+- All the respective ROM maintainers for their great code.
