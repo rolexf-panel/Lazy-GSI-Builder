@@ -221,27 +221,9 @@ Here are some common configurations to help you get started:
 - **Treble Manifest Branch**: `android-15.0`
 - **Lunch Variant**: `treble_arm64_bvN-userdebug`
 
-### Example B: Building LineageOS 22.0 (Android 15)
-- **Choose ROM Base**: `LineageOS`
-- **ROM Branch**: `lineage-22.0`
-- **Treble Manifest Branch**: `android-15.0`
-- **Lunch Variant**: `treble_arm64_bvN-userdebug`
-
 ### Example C: Building crDroid Android 14
 - **Choose ROM Base**: `crDroid`
 - **ROM Branch**: `14.0`
-- **Treble Manifest Branch**: `android-14.0`
-- **Lunch Variant**: `treble_arm64_bvN-userdebug`
-
-### Example C: Building crDroid Android 14
-- **Choose ROM Base**: `crDroid`
-- **ROM Branch**: `14.0`
-- **Treble Manifest Branch**: `android-14.0`
-- **Lunch Variant**: `treble_arm64_bvN-userdebug`
-
-### Example D: Building PixelOS 14
-- **Choose ROM Base**: `PixelOS`
-- **ROM Branch**: `fourteen`
 - **Treble Manifest Branch**: `android-14.0`
 - **Lunch Variant**: `treble_arm64_bvN-userdebug`
 
@@ -255,18 +237,6 @@ Here are some common configurations to help you get started:
 - **Choose ROM Base**: `Evolution X`
 - **ROM Branch**: `tiramisu`
 - **Treble Manifest Branch**: `android-13.0`
-- **Lunch Variant**: `treble_arm64_bvN-userdebug`
-
-### Example E: Building Evolution X Android 13
-- **Choose ROM Base**: `Evolution X`
-- **ROM Branch**: `tiramisu`
-- **Treble Manifest Branch**: `android-13.0`
-- **Lunch Variant**: `treble_arm64_bvN-userdebug`
-
-### Example F: Building RisingOS (Custom ROM)
-- **Choose ROM Base**: `RisingOS`
-- **ROM Branch**: `fifteen`
-- **Treble Manifest Branch**: `android-15.0`
 - **Lunch Variant**: `treble_arm64_bvN-userdebug`
 
 ### Example F: Building RisingOS (Custom ROM)
