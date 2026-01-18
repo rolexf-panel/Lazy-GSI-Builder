@@ -15,6 +15,14 @@ on:
         - Evolution X
         - PixelOS
         - ArrowOS
+        - RisingOS
+        - Project Elixir
+        - Corvus OS
+        - Cherish OS
+        - Awaken OS
+        - PixelExperience
+        - Havoc OS
+        - AOSP
         - Custom (Input URL manually)
       
       custom_manifest_url:
@@ -23,23 +31,53 @@ on:
         default: ''
 
       branch:
-        description: 'ROM Branch (e.g., 15.0, fourteen)'
+        description: 'ROM Branch (e.g., lineage-23.0, 16.0, fifteen, baklava)'
         required: true
-        default: '15.0'
+        default: 'lineage-23.0'
 
       treble_branch:
-        description: 'Treble Manifest Branch (Android Version)'
+        description: 'Treble Manifest Branch (android-16.0, android-15.0, etc.)'
         required: true
-        default: 'android-15.0'
+        default: 'android-16.0'
+        type: choice
+        options:
+        - android-16.0
+        - android-15.0
+        - android-14.0
+        - android-13.0
+        - android-12.1
+        - android-11.0
+        - android-10.0
 
       device:
         description: 'Lunch Variant'
         required: true
         default: 'treble_arm64_bvN-userdebug'
+        type: choice
+        options:
+        - treble_arm64_bvN-userdebug
+        - treble_arm64_bgN-userdebug
+        - treble_a64_bvN-userdebug
+        - treble_arm64_bvS-userdebug
+        - treble_arm_bvN-userdebug
+        - treble_arm64_bvZ-userdebug
+
+      use_ccache:
+        description: 'Enable ccache (speeds up rebuilds)'
+        required: false
+        default: true
+        type: boolean
+
+      clean_build:
+        description: 'Clean build (removes previous artifacts)'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 360
 
     steps:
       - name: Checkout Code
@@ -50,78 +88,356 @@ jobs:
         with:
           retain: ""
 
+      - name: Additional Disk Cleanup
+        run: |
+          echo "=== Available space before cleanup ==="
+          df -h
+          
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+          
+          echo "=== Available space after cleanup ==="
+          df -h
+
       - name: Setup Build Environment
         run: |
+          echo "Setting up build environment..."
           sudo apt-get update > /dev/null 2>&1
-          sudo apt-get install -y bc bison build-essential curl flex g++-multilib gcc-multilib git gnupg gperf \
-          libxml2 lib32z1-dev liblz4-tool libncurses5-dev libsdl1.2-dev libwxgtk3.0-gtk3-dev imagemagick \
-          git lunzip lzop schedtool squashfs-tools xsltproc zip zlib1g-dev openjdk-17-jdk python3 perl \
-          xmlstarlet virtualenv xz-utils rr jq pngcrush lib32ncurses5-dev git-lfs libxml2 > /dev/null 2>&1
           
+          # Core build dependencies
+          sudo apt-get install -y \
+            bc bison build-essential ccache curl flex \
+            g++-multilib gcc-multilib git gnupg gperf \
+            imagemagick lib32ncurses5-dev lib32readline-dev \
+            lib32z1-dev liblz4-tool libncurses5 libncurses5-dev \
+            libsdl1.2-dev libssl-dev libxml2 libxml2-utils \
+            lzop pngcrush rsync schedtool squashfs-tools xsltproc \
+            zip zlib1g-dev > /dev/null 2>&1
+          
+          # Java dependencies (multiple versions for compatibility)
+          sudo apt-get install -y \
+            openjdk-8-jdk openjdk-11-jdk openjdk-17-jdk > /dev/null 2>&1
+          
+          # Python and additional tools
+          sudo apt-get install -y \
+            python3 python3-pip python-is-python3 \
+            perl xmlstarlet virtualenv xz-utils \
+            git-lfs jq rr lunzip > /dev/null 2>&1
+          
+          # Additional libraries
+          sudo apt-get install -y \
+            libwxgtk3.0-gtk3-dev libxml2 > /dev/null 2>&1 || \
+            sudo apt-get install -y libwxgtk3.2-dev > /dev/null 2>&1
+          
+          # Install repo tool
           mkdir -p ~/bin
           curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
           chmod a+x ~/bin/repo
           echo "$HOME/bin" >> $GITHUB_PATH
+          
+          # Configure git
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git config --global color.ui false
+
+      - name: Set Java Version
+        run: |
+          # Auto-select Java version based on Android version
+          ANDROID_VER="${{ inputs.treble_branch }}"
+          
+          case "$ANDROID_VER" in
+            android-16.0|android-15.0|android-14.0|android-13.0)
+              echo "Using Java 17 for Android 13+"
+              sudo update-alternatives --set java /usr/lib/jvm/java-17-openjdk-amd64/bin/java
+              sudo update-alternatives --set javac /usr/lib/jvm/java-17-openjdk-amd64/bin/javac
+              ;;
+            android-12.1|android-12.0)
+              echo "Using Java 11 for Android 12"
+              sudo update-alternatives --set java /usr/lib/jvm/java-11-openjdk-amd64/bin/java
+              sudo update-alternatives --set javac /usr/lib/jvm/java-11-openjdk-amd64/bin/javac
+              ;;
+            android-11.0|android-10.0)
+              echo "Using Java 8 for Android 10-11"
+              sudo update-alternatives --set java /usr/lib/jvm/java-8-openjdk-amd64/jre/bin/java
+              sudo update-alternatives --set javac /usr/lib/jvm/java-8-openjdk-amd64/bin/javac
+              ;;
+          esac
+          
+          java -version
 
       - name: Configure ROM Source
         id: config
         run: |
           case "${{ inputs.rom_type }}" in
-            "LineageOS") MANIFEST="https://github.com/LineageOS/android.git" ;;
-            "crDroid") MANIFEST="https://github.com/crdroidandroid/android" ;;
-            "DerpFest") MANIFEST="https://github.com/DerpFest-12/official_devices" ;;
-            "Evolution X") MANIFEST="https://github.com/Evolution-X/manifest" ;;
-            "PixelOS") MANIFEST="https://github.com/PixelOS/manifest" ;;
-            "ArrowOS") MANIFEST="https://github.com/ArrowOS/android_manifest" ;;
-            "Custom (Input URL manually)") MANIFEST="${{ inputs.custom_manifest_url }}" ;;
+            "LineageOS") 
+              MANIFEST="https://github.com/LineageOS/android.git" 
+              ;;
+            "crDroid") 
+              MANIFEST="https://github.com/crdroidandroid/android.git" 
+              ;;
+            "DerpFest") 
+              MANIFEST="https://github.com/DerpFest-AOSP/manifest.git" 
+              ;;
+            "Evolution X") 
+              MANIFEST="https://github.com/Evolution-X/manifest.git" 
+              ;;
+            "PixelOS") 
+              MANIFEST="https://github.com/PixelOS-AOSP/manifest.git" 
+              ;;
+            "ArrowOS") 
+              MANIFEST="https://github.com/ArrowOS/android_manifest.git" 
+              ;;
+            "RisingOS") 
+              MANIFEST="https://github.com/RisingTechOSS/android.git" 
+              ;;
+            "Project Elixir") 
+              MANIFEST="https://github.com/Project-Elixir/manifest.git" 
+              ;;
+            "Corvus OS") 
+              MANIFEST="https://github.com/Corvus-AOSP/android_manifest.git" 
+              ;;
+            "Cherish OS") 
+              MANIFEST="https://github.com/CherishOS/android_manifest.git" 
+              ;;
+            "Awaken OS") 
+              MANIFEST="https://github.com/Project-Awaken/android_manifest.git" 
+              ;;
+            "PixelExperience") 
+              MANIFEST="https://github.com/PixelExperience/manifest.git" 
+              ;;
+            "Havoc OS") 
+              MANIFEST="https://github.com/Havoc-OS/android_manifest.git" 
+              ;;
+            "AOSP") 
+              MANIFEST="https://android.googlesource.com/platform/manifest" 
+              ;;
+            "Custom (Input URL manually)") 
+              MANIFEST="${{ inputs.custom_manifest_url }}" 
+              if [ -z "$MANIFEST" ]; then
+                echo "Error: Custom manifest URL is required when 'Custom' is selected"
+                exit 1
+              fi
+              ;;
+            *)
+              echo "Error: Unknown ROM type"
+              exit 1
+              ;;
           esac
+          
           echo "MANIFEST_URL=$MANIFEST" >> $GITHUB_ENV
+          echo "Using manifest: $MANIFEST"
 
       - name: Initialize Repo
         run: |
           mkdir -p ~/rom && cd ~/rom
-          repo init -u ${{ env.MANIFEST_URL }} -b ${{ inputs.branch }}
+          
+          echo "Initializing repo with manifest: ${{ env.MANIFEST_URL }}"
+          echo "Branch: ${{ inputs.branch }}"
+          
+          # Initialize with retry logic
+          for i in 1 2 3; do
+            if repo init -u ${{ env.MANIFEST_URL }} -b ${{ inputs.branch }} --depth=1; then
+              break
+            else
+              echo "Repo init attempt $i failed, retrying..."
+              sleep 10
+            fi
+          done
+          
+          # Clone Treble manifests
+          echo "Cloning TrebleDroid manifests for ${{ inputs.treble_branch }}"
           git clone https://github.com/TrebleDroid/treble_manifest .repo/local_manifests -b ${{ inputs.treble_branch }}
+          
+          # Remove replace.xml if it exists (can cause conflicts)
           rm -f .repo/local_manifests/replace.xml
+          
+          # Show manifest configuration
+          ls -la .repo/local_manifests/
 
       - name: Sync Source
         run: |
           cd ~/rom
-          repo sync -c -j4 --force-sync --no-tags --no-clone-bundle --optimized-fetch --prune
+          
+          echo "Starting repo sync..."
+          echo "This may take 30-90 minutes depending on ROM size"
+          
+          # Sync with retry and optimizations
+          repo sync -c -j$(nproc) --force-sync --no-tags --no-clone-bundle --optimized-fetch --prune || \
+          repo sync -c -j4 --force-sync --no-tags --no-clone-bundle --optimized-fetch --prune || \
+          repo sync -c -j2 --force-sync --no-tags --no-clone-bundle --optimized-fetch --prune
+          
+          echo "Repo sync completed"
+          df -h
 
       - name: Setup Treble Environment
         run: |
           cd ~/rom
-          [ -f device/phh/treble/generate.sh ] && bash device/phh/treble/generate.sh vendor/lineage/config/common_full_phone.mk || echo "Skipping generate script"
+          
+          # Run Treble generation script if it exists
+          if [ -f device/phh/treble/generate.sh ]; then
+            echo "Running Treble generation script..."
+            bash device/phh/treble/generate.sh
+          else
+            echo "No Treble generation script found, skipping..."
+          fi
+          
+          # Some ROMs need additional setup
+          if [ -d vendor/lineage ]; then
+            echo "LineageOS-based ROM detected"
+          elif [ -d vendor/aosp ]; then
+            echo "AOSP-based ROM detected"
+          fi
+
+      - name: Setup ccache
+        if: inputs.use_ccache
+        run: |
+          cd ~/rom
+          export USE_CCACHE=1
+          export CCACHE_EXEC=/usr/bin/ccache
+          export CCACHE_DIR=~/rom/.ccache
+          ccache -M 10G
+          ccache -z
+
+      - name: Clean Previous Build
+        if: inputs.clean_build
+        run: |
+          cd ~/rom
+          echo "Cleaning previous build artifacts..."
+          rm -rf out/
 
       - name: Build GSI
         run: |
           cd ~/rom
+          
+          # Setup environment
           export USE_CCACHE=1
           export CCACHE_DIR=~/rom/.ccache
-          export CCACHE_MAXSIZE=5G
+          export ALLOW_MISSING_DEPENDENCIES=true
+          export LC_ALL=C
+          
+          # Source build environment
           . build/envsetup.sh
+          
+          # Lunch target device
+          echo "Running lunch for ${{ inputs.device }}"
           lunch ${{ inputs.device }}
-          # Simpan output ke build.log agar bisa diunduh jika error
-          WITHOUT_CHECK_API=true make -j$(nproc) systemimage 2>&1 | tee build.log
+          
+          # Start build with logging
+          echo "Starting build process..."
+          echo "Target: ${{ inputs.device }}"
+          echo "ROM: ${{ inputs.rom_type }}"
+          echo "Branch: ${{ inputs.branch }}"
+          
+          # Build with error logging
+          WITHOUT_CHECK_API=true make -j$(nproc) systemimage 2>&1 | tee build.log || \
+          WITHOUT_CHECK_API=true make -j4 systemimage 2>&1 | tee -a build.log || \
+          WITHOUT_CHECK_API=true make -j2 systemimage 2>&1 | tee -a build.log
+          
+          # Check if build succeeded
+          if [ ! -f out/target/product/*/system.img ]; then
+            echo "Build failed - system.img not found"
+            exit 1
+          fi
+          
+          echo "Build completed successfully!"
+          ls -lh out/target/product/*/system.img
+
+      - name: Show ccache Statistics
+        if: inputs.use_ccache
+        run: |
+          ccache -s
 
       - name: Compress Output
         run: |
           cd ~/rom
+          
+          echo "Compressing system image..."
           find out/target/product -name "system.img" -exec xz -9 -T0 -v -z {} \;
+          
+          echo "Compressed file size:"
+          find out/target/product -name "system.img.xz" -exec ls -lh {} \;
+
+      - name: Generate Build Info
+        run: |
+          cd ~/rom
+          
+          cat > out/target/product/*/build-info.txt << EOF
+          Build Information
+          ==================
+          ROM: ${{ inputs.rom_type }}
+          Branch: ${{ inputs.branch }}
+          Android Version: ${{ inputs.treble_branch }}
+          Lunch Variant: ${{ inputs.device }}
+          Build Date: $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          Builder: GitHub Actions
+          
+          Manifest URL: ${{ env.MANIFEST_URL }}
+          Treble Manifest: https://github.com/TrebleDroid/treble_manifest
+          
+          Installation:
+          1. Extract system.img.xz: xz -d system.img.xz
+          2. Flash to device: fastboot flash system system.img
+          3. Wipe data if coming from different ROM
+          4. Reboot
+          
+          Credits:
+          - phhusson (Treble project)
+          - TrebleDroid (Treble manifests)
+          - ${{ inputs.rom_type }} developers
+          EOF
+          
+          cat out/target/product/*/build-info.txt
 
       - name: Upload Build Artifact
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: gsi-${{ inputs.rom_type }}-${{ inputs.branch }}
-          path: ~/rom/out/target/product/*/system.img.xz
-          retention-days: 7
+          name: gsi-${{ inputs.rom_type }}-${{ inputs.branch }}-${{ inputs.device }}
+          path: |
+            ~/rom/out/target/product/*/system.img.xz
+            ~/rom/out/target/product/*/build-info.txt
+          retention-days: 14
+          compression-level: 0
 
       - name: Upload Error Logs
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: error-logs-${{ inputs.rom_type }}
-          path: ~/rom/build.log
-          retention-days: 3
+          name: error-logs-${{ inputs.rom_type }}-${{ inputs.branch }}
+          path: |
+            ~/rom/build.log
+            ~/rom/out/error.log
+            ~/rom/out/verbose.log.gz
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Build Summary
+        if: always()
+        run: |
+          cd ~/rom
+          
+          echo "## Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Parameter | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| ROM | ${{ inputs.rom_type }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Branch | ${{ inputs.branch }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Android Version | ${{ inputs.treble_branch }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Lunch Variant | ${{ inputs.device }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| ccache | ${{ inputs.use_ccache }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Clean Build | ${{ inputs.clean_build }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -f out/target/product/*/system.img.xz ]; then
+            SIZE=$(ls -lh out/target/product/*/system.img.xz | awk '{print $5}')
+            echo "### ✅ Build Successful!" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Compressed Size:** $SIZE" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### ❌ Build Failed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Check the error logs artifact for details." >> $GITHUB_STEP_SUMMARY
+          fi
