@@ -276,7 +276,19 @@ Choose the correct variant based on your device architecture:
 
 ## Troubleshooting 🔧
 
-### Build Fails During Sync
+### Common Issues
+
+For detailed troubleshooting, see **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)**.
+
+#### Quick Fixes:
+
+**"remote github already exists with different attributes"**
+- ✅ Now automatically handled by the sync script
+- Script removes conflicting manifests and cleans remotes
+- If still fails, the issue is with the ROM's manifest structure
+- **Try:** Use a different ROM branch or see TROUBLESHOOTING.md
+
+**Build Fails During Sync**
 - Check if the ROM branch name is correct by visiting the ROM's GitHub repository
 - Verify the manifest URL is accessible
 - Some ROMs may have renamed their branches recently
