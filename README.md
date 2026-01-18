@@ -41,7 +41,8 @@ This workflow supports the following ROMs via a simple dropdown menu:
 │   ├── setup-ccache.sh         # ccache configuration
 │   ├── build-gsi.sh            # Main build script with progress
 │   ├── package-output.sh       # Compression & packaging
-│   └── build-summary.sh        # GitHub summary generation
+│   ├── build-summary.sh        # GitHub summary generation
+│   └── telegram-notify.sh      # Telegram notifications (optional)
 └── README.md                   # This file
 ```
 
@@ -61,6 +62,7 @@ The workflow is modular - each script handles a specific phase of the build proc
 | `build-gsi.sh` | Main build | Compiles GSI with real-time ninja progress |
 | `package-output.sh` | Compress & package | Creates compressed image and build info |
 | `build-summary.sh` | Generate report | Creates GitHub Actions summary |
+| `telegram-notify.sh` | Send notifications | Sends Telegram alerts on success/failure (optional) |
 
 ### ✨ Features
 
@@ -71,6 +73,7 @@ The workflow is modular - each script handles a specific phase of the build proc
 - **💾 Build Caching**: Optional ccache support for faster rebuilds
 - **📝 Detailed Logs**: Comprehensive logging with automatic error capture
 - **📦 Auto-Packaging**: Automatic compression and build info generation
+- **📱 Telegram Notifications**: Get instant notifications on build success/failure (optional)
 
 ---
 
@@ -81,6 +84,29 @@ The workflow is modular - each script handles a specific phase of the build proc
 3. Select **Universal Treble GSI Builder** and click **Run workflow**.
 4. Fill in the options (see the guide below) and click the green button.
 5. Wait for the build to finish (usually 1-4 hours) and grab the artifact.
+
+### 📱 Optional: Enable Telegram Notifications
+
+Get instant notifications when your builds complete!
+
+**Quick Setup (5 minutes):**
+
+1. Create a bot via [@BotFather](https://t.me/BotFather)
+2. Get your Chat ID via [@myidbot](https://t.me/myidbot)
+3. Add secrets to your repository:
+   - `TELEGRAM_BOT_TOKEN` - Your bot token from BotFather
+   - `TELEGRAM_CHAT_ID` - Your chat ID
+4. Send `/start` to your bot
+5. Done! You'll get notifications on every build
+
+**For detailed setup instructions, see [TELEGRAM_SETUP.md](TELEGRAM_SETUP.md)**
+
+**Notifications include:**
+- ✅ Build success with download link
+- ❌ Build failure with error details
+- 📄 Automatic error log file attachment
+- ⏱️ Build duration and details
+- 🔗 Direct link to workflow
 
 ### 🎬 What You'll See During Build
 
@@ -351,6 +377,7 @@ your-repo/
 - Your bootloader must be unlocked
 - Back up your data before flashing
 - Some ROMs may require additional steps (wiping data, formatting partitions)
+- **Telegram notifications are optional** - if you don't set them up, the workflow works normally
 
 ---
 
